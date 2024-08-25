@@ -33,6 +33,7 @@ If you don't know what Git or Python are, something like MochaPass probably isn'
 ### Updating
 
 Run `git pull origin` to update MochaPass.
+
 Run `pip install --upgrade bcrypt cryptography pyotp pyperclip qrcode tercol` to update the dependencies.
 
 ### Uninstallation
