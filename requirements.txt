@@ -1,0 +1,6 @@
+bcrypt
+cryptography
+pyotp
+pyperclip
+qrcode
+tercol
