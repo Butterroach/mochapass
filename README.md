@@ -30,6 +30,11 @@ Git clone, run `pip install -r requirements.txt`, then run `python3 main.py setu
 
 If you don't know what Git or Python are, something like MochaPass probably isn't for you anyway?
 
+### Updating
+
+Run `git pull origin` to update MochaPass.
+Run `pip install --upgrade bcrypt cryptography pyotp pyperclip qrcode tercol` to update the dependencies.
+
 ### Uninstallation
 
 Just delete the main.py file. If you wanna remove all of your data go to your home directory (somewhere at `C:\Users` if you're on Windows, for example `C:\Users\user`. if you're on MacOS get off MacOS what the hell are you doing) and delete the `mochapass` file. **Beware all of your passwords will be lost if you don't move them all somewhere before doing this.**
