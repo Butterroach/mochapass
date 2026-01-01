@@ -1,6 +1,6 @@
 """
     MochaPass: a CLI local password manager
-    Copyright (C) 2024-2025  Butterroach
+    Copyright (C) 2024-2026  Butterroach
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
