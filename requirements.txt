@@ -3,4 +3,4 @@ cryptography
 pyotp
 pyperclip
 qrcode
-tercol
+tranci

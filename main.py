@@ -31,12 +31,12 @@ import qrcode.image.svg
 import qrcode.main
 import secrets
 import sys
-import tercol
+import tranci
 import webbrowser
 from cryptography.fernet import Fernet
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List, cast
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 SEPARATOR = ";';';.;"
 ACCOUNT_DATA_SEPARATOR = ":..:.::."
 
@@ -102,6 +102,22 @@ def decrypt_database() -> Tuple[bytes, str]:
         return decrypted_data, master_password
 
 
+def parse_database(data: str) -> Tuple[str, List[Tuple[str, str]]]:
+    accounts = []
+    totp_secret = ""
+    for acc in data.split(SEPARATOR):
+        if not totp_secret:
+            totp_secret = acc
+            continue
+        accounts.append(tuple(acc.split(ACCOUNT_DATA_SEPARATOR)))
+    return cast(Tuple[str, List[Tuple[str, str]]],
+                (totp_secret, accounts))  # pycharm i promise this list is fixed length
+
+
+def convert_to_database(accounts: List[Tuple[str, str]], totp_secret: str) -> str:
+    return SEPARATOR.join([totp_secret] + [ACCOUNT_DATA_SEPARATOR.join(account) for account in accounts])
+
+
 def write_to_database(new_data: bytes, master_password: Optional[str] = None) -> None:
     """
     Helper function that overwrites the original encrypted data of the database with the new provided data. Uses decrypt_database() to get the master password if master_password is not provided as an argument.
@@ -124,6 +140,50 @@ def write_to_database(new_data: bytes, master_password: Optional[str] = None) ->
         )
 
 
+def edit(args: argparse.Namespace):
+    decrypted_data, master_password = decrypt_database()
+    totp_secret, parsed_database = parse_database(decrypted_data.decode())
+    print(totp_secret, parsed_database)
+    account_index = None
+    for i, account in enumerate(parsed_database):
+        if account[0] == args.id:
+            print(repr(args.id), repr(account[0]))
+            account_index = i
+            break
+    if account_index is None:
+        print("That account doesn't even exist!!!")
+        sys.exit(0x1D107)
+    new_password = SEPARATOR
+    no_password_yet = True
+    while any((SEPARATOR in new_password, ACCOUNT_DATA_SEPARATOR in new_password)):
+        if not no_password_yet and not args.generate:
+            print(
+                f"ERROR! Please do NOT include the sequence of symbols of either {SEPARATOR} or {ACCOUNT_DATA_SEPARATOR} in your password!"
+            )
+            print(
+                "This is due to how the database works. It uses those seperators. If you include those the database will break and the account with one of those sequences will no longer be accessible."
+            )
+        no_password_yet = False
+        if not args.generate:
+            new_password = getpass.getpass(f"Enter the new password for {args.id}: ")
+        else:
+            new_password = "".join(
+                [
+                    secrets.choice(
+                        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-=_+"
+                    )
+                    for _ in range(args.generate)
+                ]
+            )
+    parsed_database[account_index] = (
+        args.id,
+        new_password,
+    )
+    write_to_database(
+        convert_to_database(parsed_database, totp_secret).encode(), master_password
+    )
+
+
 def make(args: argparse.Namespace):
     if args.id.casefold() == "love":
         print("not war?")
@@ -131,7 +191,7 @@ def make(args: argparse.Namespace):
         print("do you really want spaces in your id..?")
     if any((SEPARATOR in args.id, ACCOUNT_DATA_SEPARATOR in args.id)):
         print(
-            f"ERROR! Please do NOT include the sequence of symbols of either {SEPARATOR} or {ACCOUNT_DATA_SEPARATOR} in your password!"
+            f"ERROR! Please do NOT include the sequence of symbols of either {SEPARATOR} or {ACCOUNT_DATA_SEPARATOR} in your account id!"
         )
         print(
             "This is due to how the database works. It uses those seperators. If you include those the database will break and the account with one of those sequences will no longer be accessible."
@@ -145,12 +205,12 @@ def make(args: argparse.Namespace):
     no_password_yet = True
     decrypted_data, master_password = decrypt_database()
     if any(
-        (
-            [
-                i.split(ACCOUNT_DATA_SEPARATOR)[0] == args.id
-                for i in decrypted_data.decode().split(SEPARATOR)[1:]
-            ]
-        )
+            (
+                    [
+                        i.split(ACCOUNT_DATA_SEPARATOR)[0] == args.id
+                        for i in decrypted_data.decode().split(SEPARATOR)[1:]
+                    ]
+            )
     ):
         print("The ID must be unique!")
         print(
@@ -182,11 +242,11 @@ def make(args: argparse.Namespace):
         no_password_yet = False
     write_to_database(
         (
-            decrypted_data.decode()
-            + SEPARATOR
-            + args.id
-            + ACCOUNT_DATA_SEPARATOR
-            + password
+                decrypted_data.decode()
+                + SEPARATOR
+                + args.id
+                + ACCOUNT_DATA_SEPARATOR
+                + password
         ).encode(),
         master_password,
     )
@@ -223,7 +283,7 @@ def setup(args):
     file = os.path.normpath(os.path.expanduser("~/mochapass"))
     if os.path.exists(file):
         print(
-            tercol.red(
+            tranci.Red(
                 f"You already setup MochaPass! Delete {file} then run this again if you REALLY wanna set it up all over again, but beware that you're gonna lose all of your passwords that you saved into MochaPass if you do that."
             )
         )
@@ -232,8 +292,6 @@ def setup(args):
         secret_key = pyotp.random_base32()
         totp = pyotp.totp.TOTP(secret_key)
         totp_uri = totp.provisioning_uri(issuer_name="MochaPass").encode()
-        master_password = ""
-        password_written_again = " "
         while True:
             master_password = getpass.getpass(
                 "Enter the master password (don't forget!): "
@@ -279,7 +337,7 @@ def setup(args):
                 print("MochaPass has finished setting up.")
                 break
             else:
-                print(tercol.red("Wrong code! Try again."))
+                print(tranci.Red("Wrong code! Try again."))
 
 
 parser = argparse.ArgumentParser(
@@ -301,11 +359,26 @@ parser_make.add_argument(
     required=False,
 )
 parser_make.set_defaults(func=make)
+parser_edit = subparsers.add_parser("edit", help="edit an account")
+parser_edit.add_argument(
+    "-i",
+    "--id",
+    help="the id for the account you want to edit",
+    required=True,
+)
+parser_edit.add_argument(
+    "--generate",
+    "-g",
+    help="generate a password for the account of specified character length",
+    type=int,
+    required=False,
+)
+parser_edit.set_defaults(func=edit)
 parser_get = subparsers.add_parser(
     "get", help="get the password for the account with the specific ID provided"
 )
 parser_get.add_argument(
-    "--id", help="the id for the account you want to get the password of", required=True
+    "-i", "--id", help="the id for the account you want to get the password of", required=True
 )
 parser_get.set_defaults(func=get)
 parser_list = subparsers.add_parser("list", help="list all account ids available")
@@ -316,19 +389,19 @@ args = parser.parse_args()
 
 if hasattr(args, "func"):
     if not os.path.exists(os.path.expanduser("~/mochapass")) and not hasattr(
-        args, "setup"
+            args, "setup"
     ):
         print(
-            tercol.red("Looks like MochaPass hasn't been set up yet!"),
+            tranci.Red("Looks like MochaPass hasn't been set up yet!"),
             "Please run the following to start setting up MochaPass:\n",
-            f"\t{os.path.normpath(sys.executable).split('/')[-1].split(chr(92))[-1]} {__file__} setup",
+            f"\t{os.path.basename(sys.executable)} {__file__} setup",
         )
     else:
         args.func(args)
 else:
     print(
         f"""
-{tercol.gray('''
+{tranci.Gray('''
          #  #      #
         #    #      #
        #      #    #
@@ -336,15 +409,15 @@ else:
          #    #    #
           #    #  #
          #    #  #''')}
-    {tercol.hexa(0x884e3f,'''####################
+    {tranci.HEX(0x884e3f, '''####################
     #                  #
     #                  #''')}
-     {tercol.hexa(0x884e3f,"#")}    {tercol.yellow("-------0")}    {tercol.hexa(0x884e3f,"#")}
-     {tercol.hexa(0x884e3f,"#")}    {tercol.yellow("| | | |")}     {tercol.hexa(0x884e3f,"#")}
-      {tercol.hexa(0x884e3f,'''#      	     #
+     {tranci.HEX(0x884e3f, "#")}    {tranci.Yellow("-------0")}    {tranci.HEX(0x884e3f, "#")}
+     {tranci.HEX(0x884e3f, "#")}    {tranci.Yellow("| | | |")}     {tranci.HEX(0x884e3f, "#")}
+      {tranci.HEX(0x884e3f, '''#      	     #
       #              #
        ##############''')}
-    {tercol.hexa(0xd57962,tercol.bold("mocha"))}{tercol.yellow("pass")} - v{__version__}
+    {tranci.HEX(0xd57962, tranci.Bold("mocha"))}{tranci.Yellow("pass")} - v{__version__}
         """
     )
     print("Run --help for more info on how to use MochaPass.")

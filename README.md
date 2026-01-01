@@ -34,7 +34,7 @@ If you don't know what Git or Python are, something like MochaPass probably isn'
 
 Run `git pull origin` to update MochaPass.
 
-Run `pip install --upgrade bcrypt cryptography pyotp pyperclip qrcode tercol` to update the dependencies.
+Run `pip install --upgrade -r requirements.txt` to update the dependencies.
 
 ### Uninstallation
 
@@ -46,6 +46,10 @@ Just delete the main.py file. If you wanna remove all of your data go to your ho
 2. ...soggy cat easter egg?
 3. soggy cat is surely enough to get people, right?
 4. i mean... soggy cat...
+
+### I don't like having to authenticate every single time...
+
+I'm working on something for that!
 
 ### I forgot my master password, how do I reset it?
 
